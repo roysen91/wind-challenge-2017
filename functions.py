@@ -30,6 +30,7 @@ def P_skin(I_peak,d_wire,f):
     #INPUT:  d      -> diameter of cable [m]
     #        f      -> frecuency of current [1/s]
     #OUTPUT: R_prox -> resictance due to prox-effect [ohm]
+    # not sure if sigma of 1 is right
     sigma = 1
     delta = 1 / np.sqrt(np.pi * f * sigma * mu_0)
     xi = float(d_wire / (np.sqrt(2) * delta))
@@ -85,7 +86,7 @@ def x_mag(N, d_kabel, lagen):
     return min_dist + (N / lagen * d_kabel) / 2
 
 # B-Feld Berechnung
-def B_field(x_mag):
+def B_peak(x_mag):
     #INPUT:  x_mag          -> average distance x to magnet [m]
     #OUTPUT: B_field        -> magnetic flow density [T]
     return 0.28 - 5 * x_mag
@@ -98,7 +99,7 @@ def e_eff(B_peak, l_eff, v_radial, N):
     #        l_eff          -> effective length of cable [m]
     #        v_radial       -> radial velocity [m/s]
     #        N              -> number of windings [1]
-    #OUTPUT: e_eff          -> effective value of current [V]
+    #OUTPUT: e_eff          -> effective value of voltage [V]
     return B_peak* l_eff * v_radial * N * winding_factor/np.sqrt(2)
 
 # induzierte Spannung
@@ -107,7 +108,7 @@ def e_indu(B, l_eff, v, N):
     #        l_eff          -> effective length of cable [m]
     #        v_radial       -> radial velocity [m/s]
     #        N              -> number of windings [1]
-    #OUTPUT: e_indu         -> induced current [V]
+    #OUTPUT: e_indu         -> induced voltage [V]
     return B * l_eff * v * N * winding_factor
 
 # Induktivität
@@ -118,13 +119,23 @@ def L(N, l_eff, p):
 
 # induzierter Strom
 def i_indu(e, R_i, R_L, L, f):
-    #INPUT:  e_indu  -> induced current [V]
+    #INPUT:  e_indu  -> induced voltage [V]
     #        R_i     -> inner resistance of cable [ohm]
     #        R_L     -> load resistance [ohm]
     #        L       -> inductance of spool [H] 'Henry'
     #        f       -> frecuency of current [1/s]
     #OUTPUT: i_indu  -> induced amperage [A]
     return e / np.sqrt((R_i + R_L)**2 + (L * 2 * np.pi * f)**2)
+
+# induzierter Strom
+def i_eff(e_eff, R_i, R_L, L, f):
+    #INPUT:  e_eff   -> effective voltage [V]
+    #        R_i     -> inner resistance of cable [ohm]
+    #        R_L     -> load resistance [ohm]
+    #        L       -> inductance of spool [H] 'Henry'
+    #        f       -> frecuency of current [1/s]
+    #OUTPUT: i_indu  -> induced amperage [A]
+    return e_eff / np.sqrt((R_i + R_L)**2 + (L * 2 * np.pi * f)**2)
 
 # Frequenz
 def f(n, p):
