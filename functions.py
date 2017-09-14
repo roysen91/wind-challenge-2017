@@ -1,81 +1,130 @@
 import numpy as np
 import scipy as sp
+# check link below for kelvin functions
+# http://docs.sympy.org/0.7.3/modules/mpmath/functions/bessel.html#ber
+import mpmath as mp
 
+
+
+# constansts
+winding_factor = np.pi/(2*np.sqrt(3)) # for orthozyclic windings
+mu_0                = 1.256 * 10**-6  # mag. feldkonstante [N/A^2]
 
 # Funktionen:
-
 # Radialgeschwindigkeit
-def v_radial(n, r_mag):
-    return n * r_mag
-
+def v_radial(omega, radius):
+    #INPUT:  omega           -> angular speed [rad/s]
+    #        radius          -> radius [m]
+    #OUTPUT: v_radial        -> radial velocity [m/s]
+    return omega * radius
 
 #----------------------------------
 #-----EIGENSCHAFTEN SPULE----------
 
 # Innerer Widerstand Kupfer
-
-
 def R_i(rho_cu, l_kabel, A_kabel):
     return rho_cu * l_kabel / A_kabel
 
-# Proximity Effekt
-
-
-def R_prox(d, f, mu_0):  # d = d_kabel
+# Resistance power due to Skin Effect (innerer Wirbelstrom)
+def P_skin(I_peak,d_wire,f):
+    #INPUT:  d      -> diameter of cable [m]
+    #        f      -> frecuency of current [1/s]
+    #OUTPUT: R_prox -> resictance due to prox-effect [ohm]
     sigma = 1
-    delta = 1 / sqrt(np.pi * f * sigma * mu_0)
-    xi = d / (sqrt(2) * delta)
-    Rdc = 4 / (sigma * np.pi * d**2)
-    kelvin = (sp.jv(2, xi) * sp.jv(1, xi) + sp.jv(2, xi) * sp.jn(1, xi)) / (sp.jv(0, xi)**2 + sp.jn(0, xi)**2) + (sp.jn(2, xi) * sp.jn(1, xi) + sp.jn(2, xi) * sp.jv(1, xi)) / (sp.jv(0, xi)**2 + sp.jn(0, xi)**2)
-    Gr = xi * (np.pi * d)**2 / (2 * sqrt(2)) * kelvin
-    H_amplitude = 1 / (np.pi * d_kabel)
-    return Rdc * Gr * H_amplitude**2
+    delta = 1 / np.sqrt(np.pi * f * sigma * mu_0)
+    xi = float(d_wire / (np.sqrt(2) * delta))
+    R_DC = 4 / (sigma * np.pi * d_wire**2)
 
+    kelvin =    (mp.ber(0, xi) * mp.bei(1, xi) - mp.ber(0, xi) * mp.ber(1, xi)) / (mp.ber(1, xi)**2 + mp.bei(1, xi)**2) \
+              - (mp.bei(0, xi) * mp.ber(1, xi) + mp.bei(0, xi) * mp.bei(1, xi)) / (mp.ber(1, xi)**2 + mp.bei(1, xi)**2)
+
+    F_R = xi / (4 * np.sqrt(2)) * kelvin
+
+    return R_DC*F_R*I_peak
+
+
+# Resistance power due to Proximity Effect (induzierter Wirbelstrom)
+def P_prox(d_wire, f):
+    #INPUT:  d_cable  -> diameter of cable [m]
+    #        f        -> frecuency of current [1/s]
+    #OUTPUT: R_prox   -> resictance due to prox-effect [ohm]
+    sigma = 1
+    delta = 1 / np.sqrt(np.pi * f * sigma * mu_0)
+    xi = float(d_wire / (np.sqrt(2) * delta))
+    R_DC = 4 / (sigma * np.pi * d_wire**2)
+
+    kelvin =    (mp.ber(2, xi) * mp.ber(1, xi) + mp.ber(2, xi) * mp.bei(1, xi)) / (mp.ber(0, xi)**2 + mp.bei(0, xi)**2) \
+              + (mp.bei(2, xi) * mp.bei(1, xi) + mp.bei(2, xi) * mp.ber(1, xi)) / (mp.ber(0, xi)**2 + mp.bei(0, xi)**2)
+
+    G_R = xi * (np.pi * d_wire)**2 / (2 * np.sqrt(2)) * kelvin
+
+    H_peak = 1 / (np.pi * d_wire)
+
+    return R_DC * G_R * H_peak**2
 
 def l_kabel(N, p, l_1, l_2, l_3):
-    # 1.5m (Kabel außerhalb d. Spule), 2* weil PolPAAR, l_1 bis l_3 entspricht einer Wicklung
-    return (1.5 + 2 * N * p * (l_1 + l_2 + l_3))
-
-# Durchmesser d. Kabels
-
+    #INPUT:  N              -> number of windings [1]
+    #        p              -> number of pole pairs [1]
+    #        l_1,l_2,l_3    -> sum of all three corresponds to one spool winding
+    #OUTPUT: l_kabel        -> lenght of cable [m]
+    pole_pair = 2          #-> there is always a pair
+    l_out = 1.5            #-> length outside of spool
+    return (l_out + pole_pair * N * p * (l_1 + l_2 + l_3))
 
 def A_kabel(d_kabel):
+    #INPUT:  d_kabel        -> diameter of cable [m]
+    #OUTPUT: A_kabel        -> cross-section area of cable [m^2]
     return ((d_kabel**2) / 4 * np.pi)
 
-# durchschnittlicher Abstand x zu Magnet
-
-
 def x_mag(N, d_kabel, lagen):
-    # der mittlere Abstand ist Minimalabstand v. 1 mm + Zahl der Wicklungen über Zahl der Lagen * des Durchmessers des Kabels und davon die Hälfte, da mittlerer Abstand
-    return 0.001 + (N / lagen * d_kabel) / 2
+    #INPUT:  N              -> number of windings [1]
+    #        d_kabel        -> diameter of cable [m^2]
+    #        lagen          -> num of layers [1]
+    #OUTPUT: x_mag          -> average distance x to magnet [m]
+    min_dist = 0.001        #-> min. distance is 1 mm
+    return min_dist + (N / lagen * d_kabel) / 2
 
 # B-Feld Berechnung
-
-
-def B_(x):
-    return 0.28 - 5 * x
+def B_field(x_mag):
+    #INPUT:  x_mag          -> average distance x to magnet [m]
+    #OUTPUT: B_field        -> magnetic flow density [T]
+    return 0.28 - 5 * x_mag
 
 #---------------------------------------
 #-------EIGENSCHAFTEN GENERATOR----------
+# Effektivwert der Spannung
+def e_eff(B_peak, l_eff, v_radial, N):
+    #INPUT:  B_peak         -> peak value of magnetic flow density [T]
+    #        l_eff          -> effective length of cable [m]
+    #        v_radial       -> radial velocity [m/s]
+    #        N              -> number of windings [1]
+    #OUTPUT: e_eff          -> effective value of current [V]
+    return B_peak* l_eff * v_radial * N * winding_factor/np.sqrt(2)
+
 # induzierte Spannung
-
-
-def e_indu(B, l_eff, v, N, wickel):
-    # Wicklungsgrad wickel entspricht pi/2*sqrt(3) = 0,9
-    # bei orthozyklischer Wicklung
-    return B * l_eff * v * N * wickel
+def e_indu(B, l_eff, v, N):
+    #INPUT:  B              -> magnetic flow density [T]
+    #        l_eff          -> effective length of cable [m]
+    #        v_radial       -> radial velocity [m/s]
+    #        N              -> number of windings [1]
+    #OUTPUT: e_indu         -> induced current [V]
+    return B * l_eff * v * N * winding_factor
 
 # Induktivität
-
-
-def L(N, l_eff, mu_0, p):
+def L(N, l_eff, p):
     # FLäche = Außenkreisfläche - Innenkreisfläche * 60/360
     A = (0.9**2 * np.pi - 0.45**2 * np.pi) * 120 / 360 / p
     return mu_0 * N**2 * A / l_eff
 
 # induzierter Strom
-def i_indu(e, R_V, R_L, L, f):
-    return e / np.sqrt((R_V + R_L)**2 + (L * 2 * np.pi * f)**2)
+def i_indu(e, R_i, R_L, L, f):
+    #INPUT:  e_indu  -> induced current [V]
+    #        R_i     -> inner resistance of cable [ohm]
+    #        R_L     -> load resistance [ohm]
+    #        L       -> inductance of spool [H] 'Henry'
+    #        f       -> frecuency of current [1/s]
+    #OUTPUT: i_indu  -> induced amperage [A]
+    return e / np.sqrt((R_i + R_L)**2 + (L * 2 * np.pi * f)**2)
 
 # Frequenz
 def f(n, p):

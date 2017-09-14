@@ -29,12 +29,12 @@ R_L = 10  # for schleife
 wickel = 0.9  # Wicklungsdichte
 
 x1 = fcn.x_mag(N, d_kabel, Lagen)
-B1 = fcn.B_(x1)
-e1 = fcn.e_indu(B1, l_eff, fcn.v_radial(n, r_mag), N, wickel)
+B1 = fcn.B_field(x1)
+e1 = fcn.e_indu(B1, l_eff, fcn.v_radial(n, r_mag), N)
 l_kabel1 = fcn.l_kabel(N, p, l_coil_inn, l_coil_aus, l_eff)
 A1 = fcn.A_kabel(d_kabel)
 R_i1 = fcn.R_i(rho_cu, l_kabel1, A1)
-L1 = fcn.L(N, l_eff, mu_0, p)
+L1 = fcn.L(N, l_eff, p)
 f1 = fcn.f(n, p)
 i1 = fcn.i_indu(e1, R_i1, R_L, L1, f1)
 P_v1 = R_i1 * i1**2
@@ -62,7 +62,7 @@ print('Lastleistung P_L =', fcn.P_L(R_L, i1), 'W')
 print('Verlustleistung P_v =', P_v1, 'W')
 
 # x_ar = np.linspace(0, 0.05, 51)
-# plt.plot(x_ar, _B_(x_ar))
+# plt.plot(x_ar, _B_field(x_ar))
 # plt.xlabel('Abstand [mm]')
 # plt.ylabel('B [T]')
 # plt.show()
@@ -74,7 +74,7 @@ plt.legend()
 R_Last = [1, 5, 10, 20, 30, 40, 50]
 # for i in range(0, 7):
 #    it_legende = 'R_Last = ' + str(R_Last[i]) + ' Ohm'
-#    it_e = _e_indu(_B_(_x_mag(N_ar, d_kabel, Lagen)), l_eff, _v_radial(n, r_mag), N_ar, wickel)
+#    it_e = _e_indu(_B_field(_x_mag(N_ar, d_kabel, Lagen)), l_eff, _v_radial(n, r_mag), N_ar)
 #    it_kabel = _l_kabel(N_ar, p, l_coil_aus, l_coil_inn, l_eff)
 #    it_Ri = _R_i(rho_cu, it_kabel, _A_kabel(d_kabel))
 #    it_i = _i_indu(it_e, it_Ri, R_Last[i], _L(N_ar, l_eff, mu_0, p), _f(n, p))
@@ -83,7 +83,7 @@ R_Last = [1, 5, 10, 20, 30, 40, 50]
 d_kabel_ar = np.linspace(0.001, 0.0025, 7)
 # for i in range(0, 7):
 #    it_legende = 'd_kabel = ' + str(round(d_kabel_ar[i] * 1000, 2)) + ' mm'
-#    it_e = _e_indu(_B_(_x_mag(N_ar, d_kabel_ar[i], Lagen)), l_eff, _v_radial(n, r_mag), N_ar, wickel)
+#    it_e = _e_indu(_B_field(_x_mag(N_ar, d_kabel_ar[i], Lagen)), l_eff, _v_radial(n, r_mag), N_ar)
 #    it_kabel = _l_kabel(N_ar, p, l_coil_aus, l_coil_inn, l_eff)
 #    it_Ri = _R_i(rho_cu, it_kabel, _A_kabel(d_kabel_ar[i]))
 #    it_i = _i_indu(it_e, it_Ri, R_Last[6], _L(N_ar, l_eff, mu_0, p), _f(n, p))
