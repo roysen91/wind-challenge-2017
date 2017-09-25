@@ -10,6 +10,7 @@ import mpmath as mp
 winding_factor = np.pi/(2*np.sqrt(3)) # for orthozyclic windings
 mu_0                = 1.256 * 10**-6  # mag. feldkonstante [N/A^2]
 
+
 # Funktionen:
 # Radialgeschwindigkeit
 def v_radial(omega, radius):
@@ -22,8 +23,12 @@ def v_radial(omega, radius):
 #-----EIGENSCHAFTEN SPULE----------
 
 # Innerer Widerstand Kupfer
-def R_i(rho_cu, l_kabel, A_kabel):
-    return rho_cu * l_kabel / A_kabel
+def R_i(rho_mat, l_wire, A_wire):
+    #INPUT:  rho_mat     -> sp. resistence of material [Ohm*m]
+    #        l_wire      -> length of wire [m]
+    #        A_wire      -> diameter of wire [m^2]
+    #OUTPUT: R_i         -> inner resictance of wire [ohm]
+    return rho_mat * l_wire / A_wire
 
 # Resistance power due to Skin Effect (innerer Wirbelstrom)
 def P_skin(I_peak,d_wire,f):
@@ -63,14 +68,12 @@ def P_prox(d_wire, f):
 
     return R_DC * G_R * H_peak**2
 
-def l_kabel(N, p, l_1, l_2, l_3):
+def l_kabel(N, l_coil_turn ):
     #INPUT:  N              -> number of windings [1]
-    #        p              -> number of pole pairs [1]
-    #        l_1,l_2,l_3    -> sum of all three corresponds to one spool winding
+    #        l_coil_turn    -> length of wire per coil turn [m]
     #OUTPUT: l_kabel        -> lenght of cable [m]
-    pole_pair = 2          #-> there is always a pair
     l_out = 1.5            #-> length outside of spool
-    return (l_out + pole_pair * N * p * (l_1 + l_2 + l_3))
+    return (l_out +  N * l_coil_turn )
 
 def A_kabel(d_kabel):
     #INPUT:  d_kabel        -> diameter of cable [m]
@@ -112,9 +115,9 @@ def e_indu(B, l_eff, v, N):
     return B * l_eff * v * N * winding_factor
 
 # Induktivität
-def L(N, l_eff, p):
+def L(N, r_outer, r_inner, l_eff, p):
     # FLäche = Außenkreisfläche - Innenkreisfläche * 60/360
-    A = (0.9**2 * np.pi - 0.45**2 * np.pi) * 120 / 360 / p
+    A = np.pi * (r_outer**2 - r_inner**2 ) * 60/360
     return mu_0 * N**2 * A / l_eff
 
 # induzierter Strom
