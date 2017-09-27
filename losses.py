@@ -3,7 +3,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 import scipy as sp
 import functions as fcn
-from conditions import *
+from axial_gen import *
+#from radial_gen import *
 
 
 # first wire diameter [mm]

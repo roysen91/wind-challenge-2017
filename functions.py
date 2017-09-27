@@ -90,7 +90,10 @@ def x_mag(N, d_kabel, lagen):
 def B_peak(x_mag):
     #INPUT:  x_mag          -> average distance x to magnet [m]
     #OUTPUT: B_field        -> magnetic flow density [T]
-    return  1.2#0.28 - 5 * x_mag
+
+    # B_peak from FEMM 0.65T in 1mm distance from magnet surface
+    # B = 0.25 - 0.003*x_mag 
+    return  0.25 - 0.003*x_mag 
 
 #---------------------------------------
 #-------EIGENSCHAFTEN GENERATOR----------

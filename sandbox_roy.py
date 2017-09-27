@@ -3,10 +3,11 @@ from matplotlib import pyplot as plt
 import numpy as np
 import scipy as sp
 import functions as fcn
-from conditions import *
+from axial_gen import *
+#from radial_gen import *
 
 # Arrays for ploting
-R_L_array = np.array([10,15,20,25,30]) # resistance load range will be between 0.5 and 50 Ohm (see Mail)
+R_L_array = np.array([1,3,5,10,15,20,25,30]) # resistance load range will be between 0.5 and 50 Ohm (see Mail)
 rps_array = np.linspace(1,50,50)
 
 # first wire diameter [m]
