@@ -4,7 +4,8 @@ import scipy as sp
 # http://docs.sympy.org/0.7.3/modules/mpmath/functions/bessel.html#ber
 import mpmath as mp
 
-mu_0           = 1.256 * 10**-6  # mag. feldkonstante [N/A^2]
+mu_0 			= 1.256 * 10**-6  # mag. feldkonstante [N/A^2]
+rho_cu 			= 0.0171 # [Ohm*mm2/m] spezifischer Widerstand Kupfer
 
 
 class Generator:
@@ -13,65 +14,88 @@ class Generator:
 		self.num_pole_pairs = pole_pairs
 		self.num_coils 		= coils
 		self.rot_speed 		= 24.76 # nominal turbine rpm [1/s]
-		self.R_L			= 20 
+		self.M_T 			= 1.1 # [Nm] form turbine 
+		self.R_L			= 5 #[Ohm]
 
 		if self.design == 'radial':
+			self.b_avg 				= np.loadtxt('b_avg_radial_gen.dat') # load B-avg from file 
+			self.angle_magnet 		= 70 # angle of magnets
+			self.angle_space 		= 180/self.num_pole_pairs-self.angle_magnet # angle of space between magnets
+			self.angle_coil 		= 20 # angle of coils
+			self.angle_coil_space 	= (360/self.num_coils)-self.angle_coil # angle of space between coils
 			# Rotor geometry
-			self.rotor_r_inner 		= 35*10**-3 # inner radius of magnets [mm]
-			self.rotor_r_outer 		= 45*10**-3 # outer radius of magnets [mm]
+			self.rotor_r_inner 		= 35*10**-3 # inner radius of magnets [m]
+			self.rotor_r_outer 		= 45*10**-3 # outer radius of magnets [m]
 			self.r_magnet 			= (self.rotor_r_inner+self.rotor_r_outer)/2  # radius to mid magnet [m]
 			# stator geometry
-			self.stator_r_inner 	= 47*10**-3 # inner radius [mm]
-			self.stator_r_outer 	= 50*10**-3 # outer radius [mm]
-			self.dist_rot_stat 	= 0.001+self.stator_r_outer-self.stator_r_inner  #-> min. distance is 1 mm + stator material thickness
-			# coil geometry
-			l_coil_eff 			= 2 * 0.120		# effective coil length per turn [m]
-			l_coil_outer 		= (self.stator_r_outer * 2 * np.pi / 360) * 60  # outer coil length per turn [m]
-			l_coil_inner 		= l_coil_outer  # inner coil length per turn [m]
-			l_coil_turn 		= l_coil_eff + l_coil_outer + l_coil_inner
-			area_coil 			= l_coil_eff * 2*np.pi*self.stator_r_outer *(60/360)
+			self.stator_r_inner 	= 47*10**-3 # inner radius [m]
+			self.stator_r_outer 	= 50*10**-3 # outer radius [m]
+			self.dist_rot_stat 		= 0.002+self.stator_r_outer-self.stator_r_inner  #-> min. distance is 2 mm + stator material thickness
+			# to end at 50% of magnet length where magnetic field is strongest
+			l_coil_eff 				= 0.120		# effective coil length per side [m]
+			l_coil_outer 			= (self.stator_r_outer * 2*np.pi/360)*(self.angle_coil+self.angle_coil_space)  # outer coil length per turn [m]
+			l_coil_inner 			= (self.stator_r_outer * 2*np.pi/360)*(self.angle_coil+self.angle_coil_space)  # inner coil length per turn [m]
+			l_coil_space 			= 2*self.stator_r_outer*np.pi*(self.angle_coil_space/360)
+			# max width of layers above magnet surface
+			max_coil_width = (2*np.pi*self.stator_r_outer*self.angle_magnet/360)*0.8
 
 		else:
+			self.b_avg 				= np.loadtxt('b_avg_axial_gen.dat') # load B-avg from file 
+			self.angle_magnet 		= 60 # angle of magnets
+			self.angle_space 		= 180/self.num_pole_pairs-self.angle_magnet # angle of space between magnets
 			# Rotor geometry
-			self.rotor_r_inner 		= 45.5*10**-3 # inner radius of magnets [mm]
-			self.rotor_r_outer 		= 90.5*10**-3 # outer radius of magnets [mm]
+			self.rotor_r_inner 		= 45.5*10**-3 # inner radius of magnets [m]
+			self.rotor_r_outer 		= 90.5*10**-3 # outer radius of magnets [m]
 			self.r_magnet 			= (self.rotor_r_inner+self.rotor_r_outer)/2  # radius to mid magnet [m]
 			# stator geometry
-			self.stator_r_inner 	= self.rotor_r_inner # inner radius [mm]
-			self.stator_r_outer 	= self.rotor_r_outer # outer radius [mm]
+			self.stator_r_inner 	= self.rotor_r_inner # inner radius [m]
+			self.stator_r_outer 	= self.rotor_r_outer # outer radius [m]
 			
-			self.dist_rot_stat 	= 0.001        #-> min. distance is 1 mm
+			self.dist_rot_stat 		= 0.001        #-> min. distance is 1 mm
 			# coil geometry
-			l_coil_eff 			= 2 * 0.045		# effective coil length per turn [m]
-			l_coil_outer 		= (self.stator_r_outer * 2 * np.pi / 360) * 60  # outer coil length per turn [m]
-			l_coil_inner 		= (self.stator_r_inner * 2 * np.pi / 360) * 60# inner coil length per turn [m]
-			l_coil_turn 		= l_coil_eff + l_coil_outer + l_coil_inner
-			area_coil 			= np.pi * (self.stator_r_outer**2 - self.stator_r_inner**2 ) * 60/360
+			l_coil_eff 				= 0.045		# effective coil length per side [m]
+			# to end at 50% of magnet length where magnetic field is strongest
+			l_coil_outer 			= (self.stator_r_outer * 2*np.pi/360)*(self.angle_magnet+self.angle_space) # outer coil length per turn [m]
+			l_coil_inner 			= (self.stator_r_inner * 2*np.pi/360)*(self.angle_magnet+self.angle_space) # inner coil length per turn [m]
+			l_coil_space 			= (self.rotor_r_inner+self.rotor_r_outer)*np.pi*(self.angle_space/360)
+			# max width of layers above magnet surface
+			max_coil_width = l_coil_inner*0.8
+
+
 			 
-		self.coil = Coil(l_coil_eff,l_coil_turn,area_coil)
+		self.coil = Coil(l_coil_outer,l_coil_inner,l_coil_eff,l_coil_space,max_coil_width,self.num_coils)
 
 		self.compute()
 
 	def compute(self):
 		self.coil.compute()
+		self.l_wire 	= self.num_coils*self.coil.l_wire
+		self.R_i 		= self.num_coils*self.coil.R
 		self.omega 		= self.rot_speed*2*np.pi
 		self.f_el 		= self.frequency()
-		self.x_mag 		= self.dist_mag()
-		self.B			= self.mag_flow_dens()
+		self.x_mag_l,self.x_mag_u 		= self.dist_mag()
+		self.B_eff		= self.mag_flow_dens()
+		self.H_peak 	= self.mag_field_strength()*np.sqrt(2)
 		self.v_magnet 	= self.v_radial(self.r_magnet)
-		self.V 			= self.voltage()
-		self.I 			= self.current()
+		self.V_eff 		= self.num_coils*self.voltage()
+		self.wave_resist_coeff()
+		
 
-		self.P_L 		= self.R_L*self.I**2
-		self.P_skin 	= self.power_skin()
-		self.P_prox 	= self.power_prox()
-		self.P_wire 	= self.num_coils*self.coil.R*self.I**2
-		self.P_loss		= self.P_skin+self.P_prox+self.P_wire
+		self.P_in 		= self.omega*self.M_T# P_in is from Turbine
+		self.I_eff 		= self.current()
+		self.R_L 		= self.load_resist()
 
-		self.M 			= (self.P_L+self.P_loss)/self.omega
+		self.P_skin 	= 2*self.F_R*self.num_coils*self.coil.R*self.I_eff**2
+		self.P_prox 	= self.G_R*self.num_coils*self.coil.R*self.H_peak**2
+		self.P_loss		= self.P_skin+self.P_prox
+		self.P_L 		= self.R_L*self.I_eff**2
 
-		self.eff 		= 1/(1+self.P_loss/(self.V*self.I))
-
+		if self.I_eff < 0 or self.R_L < 1 or self.R_L > 50:
+			self.eff 	= 0
+			self.M 		= 0
+		else:
+			self.eff 	= 1-self.P_loss/self.P_in
+			self.M 		= (self.P_L+self.P_loss)/self.omega
 
 	def v_radial(self,radius):
 		#INPUT:  radius      -> radius [m]
@@ -84,78 +108,128 @@ class Generator:
 		
 	def dist_mag(self):
 	    #OUTPUT: x_mag          -> distance from magnet surface to mid of coil[m]
-	    return self.dist_rot_stat + self.coil.layers * self.coil.d_wire
+	    x_mag_l = self.dist_rot_stat + self.coil.d_wire/2
+	    x_mag_u = self.dist_rot_stat + self.coil.d_wire*self.coil.layer_y-self.coil.d_wire/2
+	    return x_mag_l,x_mag_u
 
 	def mag_flow_dens(self):
-	    #OUTPUT: B_field        -> magnetic flow density [T]
-	    # B_peak from FEMM 0.65T in 1mm distance from magnet surface
-	    # B = 0.25 - 0.003*x_mag 
-	    return  0.25 - 0.003*self.x_mag
+	    #OUTPUT: B_eff        -> magnetic flow density [T]
+	    B = (abs(np.interp(self.x_mag_l,self.b_avg[:,0],self.b_avg[:,1])+abs(np.interp(self.x_mag_u,self.b_avg[:,0],self.b_avg[:,1]))))/2
+	    return B/np.sqrt(2)
 
 	def voltage(self):
 	    #OUTPUT: e_indu         -> induced voltage [V]
-	    return self.B * self.coil.l_eff * self.v_magnet * self.coil.windings * self.coil.winding_factor
+	    return self.B_eff * self.coil.l_eff * self.v_magnet * self.coil.windings * self.coil.winding_factor
 
 	def current(self):
-	    #OUTPUT: i_peak  -> induced amperage [A]
-	    return self.num_coils*self.V / np.sqrt((self.num_coils*self.coil.R + self.R_L)**2 + (self.num_coils*self.coil.L * 2 * np.pi * self.f_el)**2)
+	    #OUTPUT: i_eff  -> induced amperage [A]
+	    #return self.V_eff / np.sqrt((self.num_coils*self.coil.R + self.R_L)**2 + (self.num_coils*self.coil.L * 2 * np.pi * self.f_el)**2)
+	    
+	    p = self.V_eff/(2*self.R_i*self.F_R-self.R_i)
+	    q = +(self.R_i*self.G_R*self.H_peak**2-self.P_in)/(2*self.R_i*self.F_R-self.R_i)
 
-	def power_skin(self):
-	    #OUTPUT: R_prox -> resictance due to prox-effect [ohm]
-	    delta 	= 1 / np.sqrt(np.pi * self.f_el * self.coil.sigma_mat * mu_0)  # skin depth [m]
-	    xi 		= float(self.coil.d_wire / (np.sqrt(2) * delta))
-	    R_DC 	= 4 / (self.coil.sigma_mat * np.pi * self.coil.d_wire**2)
+	    self.I_1 = (-p/2)+np.sqrt((p/2)**2-q)
+	    self.I_2 = (-p/2)-np.sqrt((p/2)**2-q)
+	    
+	    return self.I_1
 
-	    kelvin 	=   (mp.ber(0, xi) * mp.bei(1, xi) - mp.ber(0, xi) * mp.ber(1, xi)) / (mp.ber(1, xi)**2 + mp.bei(1, xi)**2) \
-	              - (mp.bei(0, xi) * mp.ber(1, xi) + mp.bei(0, xi) * mp.bei(1, xi)) / (mp.ber(1, xi)**2 + mp.bei(1, xi)**2)
+	def load_resist(self):
+		#OUTPUT: R_load -> resictance due to load [ohm]
+		return np.sqrt((self.V_eff/self.I_eff)**2-(self.num_coils*self.coil.L * 2 * np.pi * self.f_el)**2)-self.R_i
 
-	    F_R 	= xi / (4 * np.sqrt(2)) * kelvin
+	def wave_resist_coeff(self):
+	    #OUTPUT: F_R -> coeff for skin effekt [ohm]
+		#		 G_R -> coeff for prox effekt [ohm]
 
-	    return R_DC*F_R*self.I**2
+		delta 	= 1 / np.sqrt(np.pi * self.f_el * (1/(self.coil.rho_mat*10**-6)) * mu_0)  # skin depth [m]
+		xi 		= self.coil.d_wire / (np.sqrt(2) * delta)
 
-	def power_prox(self):
-	    #OUTPUT: R_prox   -> resictance due to prox-effect [ohm]
-	    delta 	= 1 / np.sqrt(np.pi * self.f_el * self.coil.sigma_mat * mu_0)
-	    xi 		= float(self.coil.d_wire / (np.sqrt(2) * delta))
-	    R_DC 	= 4 / (self.coil.sigma_mat * np.pi * self.coil.d_wire**2)
+		kelvin_skin 	= (mp.ber(0, xi) * mp.bei(1, xi) - mp.ber(0, xi) * mp.ber(1, xi)) / (mp.ber(1, xi)**2 + mp.bei(1, xi)**2) \
+						- (mp.bei(0, xi) * mp.ber(1, xi) + mp.bei(0, xi) * mp.bei(1, xi)) / (mp.ber(1, xi)**2 + mp.bei(1, xi)**2)
 
-	    kelvin 	=    (mp.ber(2, xi) * mp.ber(1, xi) + mp.ber(2, xi) * mp.bei(1, xi)) / (mp.ber(0, xi)**2 + mp.bei(0, xi)**2) \
-	              + (mp.bei(2, xi) * mp.bei(1, xi) + mp.bei(2, xi) * mp.ber(1, xi)) / (mp.ber(0, xi)**2 + mp.bei(0, xi)**2)
+		kelvin_prox 	= (mp.ber(2, xi) * mp.ber(1, xi) + mp.ber(2, xi) * mp.bei(1, xi)) / (mp.ber(0, xi)**2 + mp.bei(0, xi)**2) \
+						+ (mp.bei(2, xi) * mp.bei(1, xi) - mp.bei(2, xi) * mp.ber(1, xi)) / (mp.ber(0, xi)**2 + mp.bei(0, xi)**2)
 
-	    G_R 	= xi * (np.pi * self.coil.d_wire)**2 / (2 * np.sqrt(2)) * kelvin
+		self.F_R 		= xi / (4 * np.sqrt(2)) * kelvin_skin
+		self.G_R 		= -(xi * (np.pi * self.coil.d_wire)**2 / (2 * np.sqrt(2))) * kelvin_prox
 
-	    H_peak 	= self.I / (np.pi * self.coil.d_wire)
+	def mag_field_strength(self):
+		#OUTPUT: H -> magnetic field strength [A/m]
+		return self.B_eff/mu_0
 
-	    return R_DC * G_R * H_peak**2
+	def __str__(self):
+		return 'l_wire 	= {} m\nx_layer = {}\ny_layer = {} \nR_i 	= {} Ohm\nB_eff 	= {} T\nV_eff 	= {} V\nI_eff 	= {} A\nR_L 	= {} Ohm\neta 	= {} %\n'\
+				.format(np.round(self.l_wire,2),np.round(self.coil.layer_x,2),np.round(self.coil.layer_y,2),np.round(self.R_i,2),np.round(self.B_eff,2),np.round(self.V_eff,2),np.round(float(self.I_eff),2),np.round(float(self.R_L),2),np.round(float(self.eff)*100,2))
+
+
 
 class Coil:
-	def __init__(self,l_eff,l_turn,area,l_out=1.5*10**-3,N=8,layers=5,d_wire=1.5,rho_mat=9.756 * 10**-3):
-		self.l_eff 			= l_eff
-		self.l_turn 		= l_turn
-		self.area 			= area
-		self.windings 		= N
-		self.layers 		= layers
-		self.d_wire			= d_wire
+	def __init__(self,l_coil_outer,l_coil_inner,l_eff,l_space,max_coil_width,num_coils,l_out=1.5*10**-3,N=30,d_wire=0.001,rho_mat=rho_cu):
+		self.max_coil_width = max_coil_width
+		self.num_coils 		= num_coils
+		self.min_coil_dist 	= 0.001 # [m] minimal distance between to coils
+		self.l_eff			= 2*l_eff
+		self.l_inner 		= l_coil_inner # [m] inner radius
+		self.l_outer 		= l_coil_outer # [m] outer radius
+		self.set_d_wire(d_wire) # [mm]
+		self.set_windings(N)
 		self.l_out 			= l_out    #-> length outside of spool [m]
-		self.winding_factor = np.pi/(2*np.sqrt(3)) # for orthozyclic windings
-		self.rho_mat 		= rho_mat # sp. Widerstand Kupfer [Ohm/m] see Generator v10.pdf
+		self.winding_factor = 1#((self.d_wire/2)**2*np.pi)/(1.32*10**-3)**2 # for rectengular winding with 0.3mm isolation thickness
+		self.rho_mat 		= rho_mat # sp. Widerstand Kupfer [Ohm*mm^2/m] see Generator v10.pdf
+		self.l_space 		= l_space # average distance between two coil cores
 
 		self.compute()
 
 	def compute(self):
 		self.sigma_mat      = 1/self.rho_mat # conductivity of copper [1/(Ohm*m)]
-		self.l_wire 		= self.length_wire()
-		self.A_wire 		= self.area_wire()
-		self.R 				= self.resistance()
-		self.L 				= self.inductance()
+		self.l_wire 		= self.length_wire() 	# [m]
+		self.A_wire 		= self.area_wire()		# [mm^2]
+		self.R 				= self.resistance()		# [Ohm]
+		self.L 				= self.inductance()		# [H]
+
+	def set_d_wire(self,d_wire,d_iso=0.07*10**-3):
+		self.d_wire = d_wire # [mm]
+		self.d_iso = d_iso # [mm]
+
+	def set_windings(self,N):
+		if self.num_coils<=2:
+			self.layer_x_max = int(self.max_coil_width/(self.d_wire+self.d_iso)) # layers along magnet surface
+		else:
+			self.layer_x_max = int(self.max_coil_width/(2*(self.d_wire+self.d_iso))) # layers along magnet surface
+
+		self.windings 		= N
+
+		if self.windings<self.layer_x_max:
+			self.layer_x 	= self.windings
+			self.layer_y 	= 1
+		else:
+			self.layer_x 	= self.layer_x_max
+			self.layer_y 	= int(self.windings/self.layer_x)+1
+		self.l_turn 		= (self.l_outer+self.layer_x*(self.d_wire+self.d_iso))+(self.l_inner+self.layer_y*(self.d_wire+self.d_iso))+self.l_eff
+		self.area 			= self.windings*self.d_wire#area 	 # [m^2]
+
+	def check_geometry(self):
+		# check if for number of windings coils have at least a minimum distance
+		if self.num_coils>2:
+			if (self.max_coil_width-2*self.layer_x*self.d_wire) <= self.min_coil_dist:
+				return False
+			else:
+				return True
+		else:
+			if (self.layer_x*self.d_wire) <= self.max_coil_width:
+				return False
+			else:
+				return True
+				
+
 
 	def length_wire(self):
 	    #OUTPUT: l_wire        -> lenght of wire [m]
-	    return (self.l_out +  self.windings * self.l_turn )
+	    return (2*self.l_out +  self.windings * self.l_turn )
 
 	def area_wire(self):
 	    #OUTPUT: area_wire      -> cross-section area of wire [mm^2]
-	    return (self.d_wire/2)**2  * np.pi
+	    return ((self.d_wire*10**3)/2)**2  * np.pi
 
 	def resistance(self):
 	    #OUTPUT: R_i         -> inner resictance of wire [ohm]
@@ -163,6 +237,7 @@ class Coil:
 
 	def inductance(self):
 	    #OUTPUT: L              -> inductivity [H] Henry
-	    # FLäche = Außenkreisfläche - Innenkreisfläche * 60/360
-	    return mu_0 * self.windings**2 * self.area / 2*self.l_eff
+	    r_w = 45/2 #
+	    #return mu_0 * self.windings**2 * self.area / self.l_eff
+	    return mu_0 * self.windings**2 * self.area / (self.l_eff+2*r_w/2.2)
 
