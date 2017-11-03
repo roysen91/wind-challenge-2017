@@ -15,5 +15,5 @@ radial_gen_2.coil.set_windings(110)
 radial_gen_2.compute()
 
 print(radial_gen_4)
-print(radial_gen_2)
-print(radial_gen_4.coil.max_coil_width)
+#print(radial_gen_2)
+#print(radial_gen_4.coil.max_coil_width)

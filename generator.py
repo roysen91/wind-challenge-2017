@@ -119,7 +119,7 @@ class Generator:
 
 	def voltage(self):
 	    #OUTPUT: e_indu         -> induced voltage [V]
-	    return self.B_eff * self.coil.l_eff * self.v_magnet * self.coil.windings * self.coil.winding_factor
+	    return self.B_eff * self.coil.l_eff * self.v_magnet * self.coil.windings * self.coil.winding_factor*0.9
 
 	def current(self):
 	    #OUTPUT: i_eff  -> induced amperage [A]
@@ -225,7 +225,7 @@ class Coil:
 
 	def length_wire(self):
 	    #OUTPUT: l_wire        -> lenght of wire [m]
-	    return (2*self.l_out +  self.windings * self.l_turn )
+	    return (2*self.l_out +  self.windings * self.l_turn )*0.84
 
 	def area_wire(self):
 	    #OUTPUT: area_wire      -> cross-section area of wire [mm^2]
